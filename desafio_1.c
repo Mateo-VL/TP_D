@@ -99,31 +99,36 @@ int obtener_IP(char* ip, size_t size_ip){
 
 
 int main(){
-    char* USERNAME = "grupo14";
-    char* SECRET = "lqrB6Xv9";
+    char* username = "grupo14";
+    char* secret = "lqrB6Xv9";
     /*char SERVERIP[16] = "167.114.129.206";
     int SERVER_PORT = 20262;*/
 
-    uint8_t SIGNATURE[16]; /*<USERNAME><PIPE><IPv4ADDRESS><PIPE><SECRET>*/
-
-    char resultado[100];
-
-    char IPv4ADDRESS[16];
+    uint8_t digest[16];
+    char resultado[100];/*<username><PIPE><ip_address><PIPE><secret>*/
 
 
-    if (obtener_IP(IPv4ADDRESS, sizeof(IPv4ADDRESS)) == -1) return 1;
-    printf("IP publica: %s\n", IPv4ADDRESS);
+    char ip_address[16];
 
-    snprintf(resultado, sizeof(resultado), "%s%s%s%s%s", USERNAME,"|", IPv4ADDRESS,"|", SECRET);
+
+    if (obtener_IP(ip_address, sizeof(ip_address)) == -1) return 1;
+    printf("IP publica: %s\n", ip_address);
+
+    snprintf(resultado, sizeof(resultado), "%s%s%s%s%s", username,"|", ip_address,"|", secret);
     printf("strlen = %zu\nresultado: %s\n",strlen(resultado), resultado);
 
-    md5((const uint8_t *)resultado, strlen(resultado), SIGNATURE);
+    md5((const uint8_t *)resultado, strlen(resultado), digest);
 
-    char sig_hex[33];
-    for (int i = 0; i < 16; i++)
-        sprintf(sig_hex + i * 2, "%02x", SIGNATURE[i]);
-    sig_hex[32] = '\0';
-    printf("signature: %s\n", sig_hex);
+    char signature[33];
+    for (int i = 0; i < 16; i++) {
+        sprintf(signature + i * 2,"%02x", digest[i]);
+    }
+    printf("signature: %s\n", signature);
+
+    char PDU[100];
+
+    snprintf(PDU, sizeof(PDU), "%s%s%s%s%s", username,"|", ip_address,"|", signature);
+    printf("strlen = %zu\nPDU: %s\n",strlen(PDU), PDU);
 
     return 0;
 }
