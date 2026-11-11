@@ -61,19 +61,20 @@ int main(int argc, char *argv[])
 
     size_t total = 0; /*Total del mensaje recibido*/
     ssize_t n; /*tamaño del fragmento recibido*/
-    while (total < sizeof(resp) - 1 && /**/
-           (n = recv(s, resp + total, sizeof(resp) - 1 - total, 0)) > 0) {
-        total += n;
+    while (total < sizeof(resp) - 1 && /*Nos aseguramos que no se llene el buffer, con -1 para guardar espacio para el \0*/
+    /*Argumentos de recv: [s] el socket | [resp + total] es donde escribir lo recibido | [sizeof(resp) - 1 - total] cuanto puedo escribir como maximo | [0] sin flags*/
+            (n = recv(s, resp + total, sizeof(resp) - 1 - total, 0)) > 0) { /*recv devuele n el tamaño del fragmento recibido, 0 si se cerro la conexion y -1 si hay error. >0 continua el bucle hasta que se cierre la conexion o haya error*/
+        total += n; /*Sumo lo recibido al total*/
     }
-    close(s);
-    resp[total] = '\0';
+    close(s); /*cierro el socket*/
+    resp[total] = '\0';/*Agrego \0 al final*/
 
 
 
     /* El body empieza despues de la linea vacia */
-    char *body = strstr(resp, "\r\n\r\n");
-    if (body == NULL) { fprintf(stderr, "respuesta HTTP invalida\n"); return -1; }
-    body += 4;
+    char *body = strstr(resp, "\r\n\r\n"); /*Me quedo con lo que hay despues de \r\n\r\n*/
+    if (body == NULL) { fprintf(stderr, "respuesta HTTP invalida\n"); return -1; } /*Chequeo que llego bien*/
+    body += 4; /*Elimino os vacios para quedarme con la informacion*/
 
     /* Sacamos espacios / saltos de linea al final */
     size_t len = strlen(body);
@@ -84,4 +85,3 @@ int main(int argc, char *argv[])
     printf("IP publica: %s\n", body);
     return 0;
 }
-
