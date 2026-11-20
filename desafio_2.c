@@ -243,6 +243,7 @@ void md5_hex_buf(const uint8_t *data, size_t len, char out[33])
  */
 int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
 {
+    /*Recorro la PDU contando los &. Guardo en pos_amp la posición del primero*/
     size_t n_amp = 0, pos_amp = 0;
     for (size_t i = 0; i < len; i++) {
         if (p[i] == '&') {
@@ -250,15 +251,17 @@ int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
             n_amp++;
         }
     }
-    if (n_amp != 1)
+    if (n_amp != 1)/*Si hay 0 o mas de 1 retorno error*/
         return 400;
 
+    /*El timestamp empieza en p y mide pos_amp caracteres.
+El mensaje empieza justo después del & y mide lo que queda.*/
     const unsigned char *ts  = p;
     size_t ts_len            = pos_amp;
     const unsigned char *msg = p + pos_amp + 1;
     size_t msg_len           = len - pos_amp - 1;
 
-    /* --- timestamp --- */
+    /*Validación del timestamp. Si esta vacio, si esta mal el formato*/
     if (ts_len == 0)
         return 405;
     for (size_t i = 0; i < ts_len; i++)
@@ -267,6 +270,7 @@ int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
     if (ts_len > TS_MAX_LEN)
         return 407;
 
+    /*Convierto el texto a número a mano, */
     long long t = 0;
     for (size_t i = 0; i < ts_len; i++)
         t = t * 10 + (ts[i] - '0');
@@ -275,7 +279,7 @@ int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
     if (dif > TS_MAX_EDAD)
         return 406;
 
-    /* --- mensaje --- */
+    /* Validación del mensaje */
     if (msg_len == 0)
         return 409;
     for (size_t i = 0; i < msg_len; i++)
@@ -288,6 +292,7 @@ int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
 }
 
 /* ---------- Contexto y estadisticas ----------------------------------- */
+/*Agrupa lo que necesita manejar_pdu para no pasar 8 parámetros*/
 typedef struct {
     const char *username;
     const char *secret;
@@ -300,6 +305,8 @@ typedef struct {
     int pdus_descartadas;  /* resincronizacion por desborde de buffer */
 } ctx_t;
 
+/*Es el buffer de recepción: data guarda los bytes, len cuántos hay ocupados, y descartando es un
+flag que uso solo en el caso raro de desborde (más abajo).*/
 typedef struct {
     unsigned char data[RX_BUF_SIZE];
     size_t len;
@@ -315,7 +322,8 @@ static void imprimir_seguro(const unsigned char *p, size_t len)
     }
 }
 
-/* Copia 'n' bytes a buf en la posicion *off, verificando el limite */
+/* Copia 'n' bytes a buf en la posicion *off, verificando el limite. Evita pisar la memoria
+si no entra en la capacidad cap */
 static int agregar(unsigned char *buf, size_t cap, size_t *off,
                    const void *src, size_t n)
 {
@@ -329,23 +337,26 @@ static int agregar(unsigned char *buf, size_t cap, size_t *off,
  * con formato  USERNAME|PDU|PARSE_CODE|SIGNATURE  */
 static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
 {
-    c->pdus_totales++;
+    c->pdus_totales++; /*Cuenta la PDU y la parsea con la hora actual (time(NULL))*/
     int code = parsear_pdu(pdu, len, time(NULL));
 
     printf("PDU #%d [%zu B] code=%d : \"", c->pdus_totales, len, code);
-    imprimir_seguro(pdu, len);
+    imprimir_seguro(pdu, len);/*Muestra en pantalla lo que se parseó*/
     printf("\"");
 
-    if (memchr(pdu, '|', len) != NULL) {
+    if (memchr(pdu, '|', len) != NULL) {/*busca |. Si está, cuento y salgo.*/
         printf("  -> NO se reenvia (contiene 0x7C)\n");
         c->pdus_con_pipe++;
         return;
     }
 
     char code_str[8];
-    snprintf(code_str, sizeof(code_str), "%d", code);
+    snprintf(code_str, sizeof(code_str), "%d", code);/*Convierto el código numérico a texto ("200")*/
 
     /* Armamos el cuerpo firmado:  USERNAME|PDU|CODE   (y luego |SECRET) */
+    /*Voy concatenando USERNAME|PDU[\r\n]|CODE. Cada agregar devuelve 0 o -1, y con |= acumulo en
+    err si alguno falló. Al final reviso una sola vez. El \r\n solo se agrega si incluir_crlf
+    está activo (lo que controla el flag --sin-crlf).*/
     unsigned char cuerpo[TX_BUF_SIZE];
     size_t off = 0;
     int err = 0;
@@ -359,6 +370,8 @@ static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
     if (err) { printf("  -> error: PDU demasiado grande\n"); return; }
 
     /* firma = md5(cuerpo | SECRET) */
+    /*El enunciado define la firma como md5(USERNAME|PDU|CODE|SECRET). Eso es el cuerpo, más |,
+    más el secreto. El secreto se usa solo para calcular el MD5 y nunca viaja en el datagrama.*/
     unsigned char a_firmar[TX_BUF_SIZE + 128];
     size_t off_f = 0;
     err |= agregar(a_firmar, sizeof(a_firmar), &off_f, cuerpo, off);
@@ -367,7 +380,7 @@ static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
     char firma[33];
     md5_hex_buf(a_firmar, off_f, firma);
 
-    /* datagrama = cuerpo | FIRMA */
+    /* Datagrama final y envío. datagrama = cuerpo | FIRMA */
     unsigned char datagrama[TX_BUF_SIZE + 64];
     size_t off_d = 0;
     err |= agregar(datagrama, sizeof(datagrama), &off_d, cuerpo, off);
