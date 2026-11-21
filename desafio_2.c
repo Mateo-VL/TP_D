@@ -286,7 +286,12 @@ typedef struct {
     const char *username;
     const char *secret;
     int udp_fd;            /* socket UDP ya "conectado" al servidor */
+<<<<<<< HEAD
     int incluir_crlf;      /* 1: la PDU viaja con CR LF en el datagrama UDP*/
+=======
+    int incluir_crlf;      /* 1: la PDU viaja con CR LF en el datagrama UDP  IMPORTANTE REVISAR Y ELIMINAR ESTO CDO SEPAMOS*/
+    /* estadisticas */
+>>>>>>> origin/main
     int pdus_totales;
     int pdus_enviadas;
     int pdus_con_pipe;     /* no se reenvian (contienen 0x7C) */
