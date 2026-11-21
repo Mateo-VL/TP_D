@@ -116,9 +116,7 @@ long ms_ahora(void)
     return t.tv_sec * 1000L + t.tv_nsec / 1000000L;
 }
 
-/* La respuesta es CODE|ACTION|TEXT|SIGNATURE. Es valida si SIGNATURE ==
- * md5(CODE|ACTION|TEXT|SECRET). Las respuestas de error (400/401) traen 32
- * ceros porque el servidor no puede firmarlas: esas se aceptan. */
+/* La respuesta es CODE|ACTION|TEXT|SIGNATURE. Es valida si SIGNATURE == md5(CODE|ACTION|TEXT|SECRET). Las respuestas de error (400/401) traen 32 ceros porque el servidor no puede firmarlas: esas se aceptan. */
 int respuesta_valida(const char *msg, const char *secret)
 {
     const char *ultimo = strrchr(msg, '|');
@@ -137,8 +135,7 @@ int respuesta_valida(const char *msg, const char *secret)
 }
 
 /* Envia msg por UDP y espera hasta timeout_ms por una respuesta valida.
- * Los datagramas con firma invalida se descartan en silencio y se sigue
- * esperando el tiempo restante.
+ * Los datagramas con firma invalida se descartan en silencio y se sigue esperando el tiempo restante.
  * Devuelve 0 (respuesta en reply), -1 error, -2 timeout. */
 
 int udp_pedir(const char *server, const char *port, const char *msg,
@@ -162,8 +159,7 @@ int udp_pedir(const char *server, const char *port, const char *msg,
         return -1;
     }
 
-    /* En UDP connect() no envia nada: solo fija el destino por defecto y hace
-     * que recv() ignore datagramas de otros origenes */
+    /* En UDP connect() no envia nada: solo fija el destino por defecto y hace que recv() ignore datagramas de otros origenes */
     if (connect(s, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
         perror("connect");
         close(s);
@@ -207,13 +203,7 @@ int udp_pedir(const char *server, const char *port, const char *msg,
 
 
 
-/* ====================================================================
- *                           DESAFIO 2
- * ====================================================================
- * Flujo: el cliente se conecta por TCP al puerto dinamico, recibe PDUs
- * delimitadas por CR LF (con framing), las parsea y reenvia por UDP,
- * firmadas, al servidor de la catedra.
- */
+/* el cliente se conecta por TCP al puerto dinamico, recibe PDUs delimitadas por CR LF (con framing), las parsea y reenvia por UDP,firmadas, al servidor de la catedra.*/
 
 #define RX_BUF_SIZE        4096   /* buffer de recepcion TCP (>> 122 B)      */
 #define TS_MAX_LEN         11     /* largo maximo del timestamp              */
@@ -232,7 +222,7 @@ void md5_hex_buf(const uint8_t *data, size_t len, char out[33])
     out[32] = '\0';
 }
 
-/* ---------- Parser de PDU ---------------------------------------------
+/* Parser de PDU 
  * p/len: PDU SIN el CR LF final. Devuelve el PARSE_CODE.
  *
  * Orden de validacion (si hay varios errores a la vez, gana el primero):
@@ -243,7 +233,7 @@ void md5_hex_buf(const uint8_t *data, size_t len, char out[33])
  */
 int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
 {
-    /*Recorro la PDU contando los &. Guardo en pos_amp la posición del primero*/
+    /*recorre la PDU contando los &. Guardo en pos_amp la posición del primero*/
     size_t n_amp = 0, pos_amp = 0;
     for (size_t i = 0; i < len; i++) {
         if (p[i] == '&') {
@@ -254,14 +244,13 @@ int parsear_pdu(const unsigned char *p, size_t len, time_t ahora)
     if (n_amp != 1)/*Si hay 0 o mas de 1 retorno error*/
         return 400;
 
-    /*El timestamp empieza en p y mide pos_amp caracteres.
-El mensaje empieza justo después del & y mide lo que queda.*/
+    /*El timestamp empieza en p y mide pos_amp caracteres. El mensaje empieza justo después del & y mide lo que queda.*/
     const unsigned char *ts  = p;
     size_t ts_len            = pos_amp;
     const unsigned char *msg = p + pos_amp + 1;
     size_t msg_len           = len - pos_amp - 1;
 
-    /*Validación del timestamp. Si esta vacio, si esta mal el formato*/
+    /*validación del timestamp. Si esta vacio, si esta mal el formato*/
     if (ts_len == 0)
         return 405;
     for (size_t i = 0; i < ts_len; i++)
@@ -291,7 +280,7 @@ El mensaje empieza justo después del & y mide lo que queda.*/
     return 200;
 }
 
-/* ---------- Contexto y estadisticas ----------------------------------- */
+/*Contexto y estadisticas */
 /*Agrupa lo que necesita manejar_pdu para no pasar 8 parámetros*/
 typedef struct {
     const char *username;
@@ -322,8 +311,7 @@ static void imprimir_seguro(const unsigned char *p, size_t len)
     }
 }
 
-/* Copia 'n' bytes a buf en la posicion *off, verificando el limite. Evita pisar la memoria
-si no entra en la capacidad cap */
+/* Copia 'n' bytes a buf en la posicion *off, verificando el limite. Evita pisar la memoria si no entra en la capacidad cap */
 static int agregar(unsigned char *buf, size_t cap, size_t *off,
                    const void *src, size_t n)
 {
@@ -333,8 +321,7 @@ static int agregar(unsigned char *buf, size_t cap, size_t *off,
     return 0;
 }
 
-/* Parsea una PDU completa (sin CR LF) y, si corresponde, la reenvia por UDP
- * con formato  USERNAME|PDU|PARSE_CODE|SIGNATURE  */
+/* Parsea una PDU completa (sin CR LF) y, si corresponde, la reenvia por UDP con formato  USERNAME|PDU|PARSE_CODE|SIGNATURE  */
 static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
 {
     c->pdus_totales++; /*Cuenta la PDU y la parsea con la hora actual (time(NULL))*/
@@ -354,9 +341,7 @@ static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
     snprintf(code_str, sizeof(code_str), "%d", code);/*Convierto el código numérico a texto ("200")*/
 
     /* Armamos el cuerpo firmado:  USERNAME|PDU|CODE   (y luego |SECRET) */
-    /*Voy concatenando USERNAME|PDU[\r\n]|CODE. Cada agregar devuelve 0 o -1, y con |= acumulo en
-    err si alguno falló. Al final reviso una sola vez. El \r\n solo se agrega si incluir_crlf
-    está activo (lo que controla el flag --sin-crlf).*/
+    /*Voy concatenando USERNAME|PDU[\r\n]|CODE. Cada agregar devuelve 0 o -1, y con |= acumulo en err si alguno falló. Al final reviso una sola vez. El \r\n solo se agrega si incluir_crlf está activo (lo que controla el flag --sin-crlf).*/
     unsigned char cuerpo[TX_BUF_SIZE];
     size_t off = 0;
     int err = 0;
@@ -370,8 +355,7 @@ static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
     if (err) { printf("  -> error: PDU demasiado grande\n"); return; }
 
     /* firma = md5(cuerpo | SECRET) */
-    /*El enunciado define la firma como md5(USERNAME|PDU|CODE|SECRET). Eso es el cuerpo, más |,
-    más el secreto. El secreto se usa solo para calcular el MD5 y nunca viaja en el datagrama.*/
+    /* firma es md5(USERNAME|PDU|CODE|SECRET). Eso es el cuerpo, más |, más el secret. El secreto se usa solo para calcular el MD5 y nunca viaja en el datagrama.*/
     unsigned char a_firmar[TX_BUF_SIZE + 128];
     size_t off_f = 0;
     err |= agregar(a_firmar, sizeof(a_firmar), &off_f, cuerpo, off);
@@ -380,7 +364,7 @@ static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
     char firma[33];
     md5_hex_buf(a_firmar, off_f, firma);
 
-    /* Datagrama final y envío. datagrama = cuerpo | FIRMA */
+    /* Datagrama final y envío   datagrama = cuerpo | FIRMA */
     unsigned char datagrama[TX_BUF_SIZE + 64];
     size_t off_d = 0;
     err |= agregar(datagrama, sizeof(datagrama), &off_d, cuerpo, off);
@@ -397,7 +381,7 @@ static void manejar_pdu(ctx_t *c, const unsigned char *pdu, size_t len)
     printf("  -> enviada por UDP\n");
 }
 
-/* Busca CR LF. Devuelve el indice del CR, o -1 si no esta */
+/* busco CR LF. devuelve el indice del CR, o -1 si no esta */
 static long buscar_crlf(const unsigned char *b, size_t len)
 {
     for (size_t i = 0; i + 1 < len; i++)
@@ -406,10 +390,8 @@ static long buscar_crlf(const unsigned char *b, size_t len)
     return -1;
 }
 
-/* FRAMING: extrae del buffer todas las PDUs completas (terminadas en CR LF),
- * las procesa, y deja al inicio del buffer el resto (PDU parcial).
- * Cubre: PDU partida en varios segmentos, varias PDUs en un segmento y la
- * combinacion de ambos casos. */
+/* FRAMING: extrae del buffer todas las PDUs completas (terminadas en CR LF), las procesa, y deja al inicio del buffer el resto (PDU parcial).
+ * Cubre: PDU partida en varios segmentos, varias PDUs en un segmento y la cobminacion de ambos casos. */
 static void procesar_buffer(ctx_t *c, rxbuf_t *rx)
 {
     long idx;
@@ -426,9 +408,7 @@ static void procesar_buffer(ctx_t *c, rxbuf_t *rx)
         rx->len -= consumido;
     }
 
-    /* Buffer lleno sin CR LF: no es una PDU valida (max 122 B). Tiramos todo
-     * y seguimos descartando hasta el proximo CR LF; conservamos el ultimo
-     * byte por si era el CR. */
+    /* Buffer lleno sin CR LF: no es una PDU valida (max 122 B). Tiramos todoy seguimos descartando hasta el proximo CR LF; conservamos el ultimo byte por si era el CR. */
     if (rx->len == RX_BUF_SIZE) {
         rx->descartando = 1;
         rx->data[0] = rx->data[rx->len - 1];
@@ -436,7 +416,7 @@ static void procesar_buffer(ctx_t *c, rxbuf_t *rx)
     }
 }
 
-/* Extrae el puerto de "200|Port|<puerto>|<firma>". Devuelve 0 si ok */
+/* trae el puerto de "200|Port|<puerto>|<firma>" y devulve 0 si ok */
 static int extraer_puerto(const char *reply, char *port, size_t port_size)
 {
     if (strncmp(reply, "200|Port|", 9) != 0)
@@ -455,7 +435,8 @@ static int extraer_puerto(const char *reply, char *port, size_t port_size)
     return 0;
 }
 
-/* Socket TCP conectado a server:port. Devuelve fd o -1 */
+/* Socket TCP conectado a server:port  
+ * devuelve fd o -1 */
 static int conectar_tcp(const char *server, const char *port)
 {
     struct addrinfo hints, *servinfo;
@@ -484,7 +465,7 @@ static int conectar_tcp(const char *server, const char *port)
     return s;
 }
 
-/* Socket UDP "conectado" al servidor (para poder usar send). Devuelve fd o -1 */
+/* Socket UDP "conectado" al servidor (para poder usar send)*/
 static int abrir_udp(const char *server, const char *port)
 {
     struct addrinfo hints, *servinfo;
@@ -513,7 +494,7 @@ static int abrir_udp(const char *server, const char *port)
     return s;
 }
 
-/* Desafio 2 completo: conecta, recibe, delimita, parsea y reenvia */
+/*  conecta, recibe, delimita, parsea y reenvia */
 int desafio2(const char *server, const char *udp_port, const char *tcp_port,
              const char *username, const char *secret, int incluir_crlf)
 {
@@ -555,7 +536,7 @@ int desafio2(const char *server, const char *udp_port, const char *tcp_port,
             break;
         }
         if (n == 0)
-            break;                      /* el servidor cerro la conexion */
+            break;  /* el servidor cerro la conexion */
 
         rx.len += (size_t)n;
         procesar_buffer(&ctx, &rx);
@@ -579,16 +560,10 @@ int desafio2(const char *server, const char *udp_port, const char *tcp_port,
     return 0;
 }
 
-/* ====================================================================
- *                                MAIN
- * ====================================================================
- * Uso:  ./desafio_2 [--sin-crlf]
- *   --sin-crlf : en el datagrama UDP la PDU va SIN el CR LF final
- *                (por defecto va CON CR LF, ya que el enunciado incluye
- *                el END_DELIMITER dentro de la definicion de PDU).
+/*   Uso:  ./desafio_2 [--sin-crlf]: en el datagrama UDP la PDU va SIN el CR LF final (por defecto va CON CR LF, ya que el enunciado incluyeel END_DELIMITER dentro de la definicion de PDU).
  *
  * Para pruebas locales (no usar en la entrega real) se pueden pisar:
- *   TP_SERVER_IP   IP del servidor      (por defecto la de la catedra)
+ *   TP_SERVER_IP   IP del servidor (por defecto la de la catedra)
  *   TP_PUBLIC_IP   IP publica a informar (evita consultar api.ipify.org)
  */
 int main(int argc, char **argv)
@@ -607,7 +582,7 @@ int main(int argc, char **argv)
     const char *env;
     if ((env = getenv("TP_SERVER_IP")) != NULL) serverip = env;
 
-    /* ---------- Desafio 1 ---------- */
+    /* del Desafio 1  */
     char ip_address[16];
     if ((env = getenv("TP_PUBLIC_IP")) != NULL && strlen(env) < sizeof(ip_address)) {
         strcpy(ip_address, env);
@@ -633,7 +608,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    /* ---------- Desafio 2 ---------- */
+
     if (desafio2(serverip, port, tcp_port, username, secret, incluir_crlf) == -1)
         return 1;
 
