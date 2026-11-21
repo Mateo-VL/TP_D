@@ -130,7 +130,7 @@ int main(){
     snprintf(PDU, sizeof(PDU), "%s%s%s%s%s", username,"|", ip_address,"|", signature);
     printf("strlen = %zu\nPDU: %s\n",strlen(PDU), PDU);
 
-    ////////////////////////////////////////////////////
+    /////////////////
     /* Crear socket UDP (SOCK_DGRAM) */
     int sock_udp = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_udp == -1) {
