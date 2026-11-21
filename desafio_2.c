@@ -286,8 +286,7 @@ typedef struct {
     const char *username;
     const char *secret;
     int udp_fd;            /* socket UDP ya "conectado" al servidor */
-    int incluir_crlf;      /* 1: la PDU viaja con CR LF en el datagrama UDP  IMPORTANTE REVISAR Y ELIMINAR ESTO UNA VEZ SEPAMOS*/
-    /* estadisticas */
+    int incluir_crlf;      /* 1: la PDU viaja con CR LF en el datagrama UDP*/
     int pdus_totales;
     int pdus_enviadas;
     int pdus_con_pipe;     /* no se reenvian (contienen 0x7C) */
@@ -560,29 +559,28 @@ int desafio2(const char *server, const char *udp_port, const char *tcp_port,
     return 0;
 }
 
-/*   Uso:  ./desafio_2 [--sin-crlf]: en el datagrama UDP la PDU va SIN el CR LF final (por defecto va CON CR LF, ya que el enunciado incluyeel END_DELIMITER dentro de la definicion de PDU).
+/* ====================================================================
+ *                                MAIN
+ * ====================================================================
+ * Uso:  ./desafio_2 [--sin-crlf]
+ *   --sin-crlf : en el datagrama UDP la PDU va SIN el CR LF final.
  *
  * Para pruebas locales (no usar en la entrega real) se pueden pisar:
  *   TP_SERVER_IP   IP del servidor (por defecto la de la catedra)
  *   TP_PUBLIC_IP   IP publica a informar (evita consultar api.ipify.org)
  */
-int main(int argc, char **argv)
+int main()
 {
     const char *username = "grupo14";
     const char *secret = "lqrB6Xv9";
     const char *serverip = "167.114.129.206";
     const char *port = "20262";
-    int incluir_crlf = 1;
-
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--sin-crlf") == 0) incluir_crlf = 0;
-        else { fprintf(stderr, "uso: %s [--sin-crlf]\n", argv[0]); return 1; }
-    }
+    int incluir_crlf = 0; /*Para controlas si CR y LF van en el PDU que manda UDP o no*/
 
     const char *env;
     if ((env = getenv("TP_SERVER_IP")) != NULL) serverip = env;
 
-    /* del Desafio 1  */
+    /* Obtener puerto */
     char ip_address[16];
     if ((env = getenv("TP_PUBLIC_IP")) != NULL && strlen(env) < sizeof(ip_address)) {
         strcpy(ip_address, env);
